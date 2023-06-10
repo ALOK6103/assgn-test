@@ -2,8 +2,9 @@ const mongoose=require("mongoose")
 
 const seatSchema=mongoose.Schema(
     {
-        row: Number,
+       
         seatNumber: Number,
+        row: Number,
         isBooked: Boolean,
     },{
         versionKey:false

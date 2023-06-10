@@ -35,7 +35,7 @@ seatRouter.post("/reserve",async(req,res)=>{
       .sort({ row: 1, seatNumber: 1 })
       .limit(numSeats);
 
-    if (availableSeats.length < numSeats) {
+    if (availableSeats.length < numSeats || numSeats>7) {
       return res.status(400).json({ error: 'Not enough available seats' });
     }
 
