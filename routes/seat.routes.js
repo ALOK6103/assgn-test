@@ -94,8 +94,9 @@ seatRouter.post("/reserve",async(req,res)=>{
               temp.push(seat.seatNumber)
               await seat.save();
             });
-            res.json(temp)
-            return res.json({ message: 'Seats reserved successfully' });
+            //res.json(temp)
+            //return res.json({ message: 'Seats reserved successfully' });
+            return res.json({ message: temp });
           } else {
             return res.status(400).json({ error: 'Not enough available seats' });
           }
