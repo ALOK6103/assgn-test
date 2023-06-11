@@ -33,12 +33,12 @@ seatRouter.post("/reserve",async(req,res)=>{
     // Find available seats in one row
     const availableSeatsInOneRow = await seatModel.find({
       isBooked: false,
-      seatNumber: { $lt: 8 - numSeats },
+      seatNumber: { $lt: 8 },
     })
       .sort({ row: 1, seatNumber: 1 })
       .limit(numSeats);
 
-    if (availableSeatsInOneRow.length === numSeats) {
+    if (availableSeatsInOneRow.length >= numSeats) {
       // Reserve seats in one row
       availableSeatsInOneRow.forEach(async (seat) => {
         seat.isBooked = true;
@@ -46,18 +46,18 @@ seatRouter.post("/reserve",async(req,res)=>{
       });
       return res.json({ message: 'Seats reserved successfully' });
     } else {
-      // Reserve seats in nearby rows
-      const reservedSeats = await seatModel.find({ isBooked: true }).sort({ row: -1, seatNumber: -1 }).limit(1);
-      const lastReservedSeatRow = reservedSeats.length > 0 ? reservedSeats[0].row : 0;
+      // Find available seats in nearby rows
+      const lastReservedRow = await seatModel.findOne({ isBooked: true }).sort({ row: -1 });
+      const nextRow = lastReservedRow ? lastReservedRow.row + 1 : 1;
 
       const availableSeatsNearby = await seatModel.find({
         isBooked: false,
-        row: { $gt: lastReservedSeatRow },
+        row: nextRow,
       })
-        .sort({ row: 1, seatNumber: 1 })
+        .sort({ seatNumber: 1 })
         .limit(numSeats);
 
-      if (availableSeatsNearby.length < numSeats || numSeats > 7) {
+      if (availableSeatsNearby.length < numSeats || numSeats>7) {
         return res.status(400).json({ error: 'Not enough available seats' });
       }
 
@@ -73,6 +73,7 @@ seatRouter.post("/reserve",async(req,res)=>{
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });
   }
+  
 })
 
 module.exports={
