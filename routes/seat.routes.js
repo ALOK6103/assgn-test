@@ -30,6 +30,10 @@ seatRouter.post("/reserve",async(req,res)=>{
   try {
     const numSeats = req.body.numSeats;
 
+    if (numSeats > 7) {
+      return res.status(400).json({ error: 'Maximum 7 seats can be booked at a time' });
+    }
+
     // Find available seats in one row
     const availableSeatsInOneRow = await seatModel.find({
       isBooked: false,
@@ -80,7 +84,18 @@ seatRouter.post("/reserve",async(req,res)=>{
           });
           return res.json({ message: 'Seats reserved successfully' });
         } else {
-          return res.status(400).json({ error: 'Not enough available seats' });
+          // Find seats which are not booked and book them according to the request
+          const unreservedSeats = await seatModel.find({ isBooked: false }).limit(numSeats);
+
+          if (unreservedSeats.length >= numSeats) {
+            unreservedSeats.forEach(async (seat) => {
+              seat.isBooked = true;
+              await seat.save();
+            });
+            return res.json({ message: 'Seats reserved successfully' });
+          } else {
+            return res.status(400).json({ error: 'Not enough available seats' });
+          }
         }
       }
     }
