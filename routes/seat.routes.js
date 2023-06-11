@@ -63,11 +63,14 @@ seatRouter.post("/reserve",async(req,res)=>{
 
       if (availableSeatsNearby.length >= numSeats) {
         // Reserve seats in nearby rows
+        let temp=[]
         availableSeatsNearby.forEach(async (seat) => {
           seat.isBooked = true;
+          temp.push(seat.seatNumber)
           await seat.save();
         });
-        return res.json({ message: 'Seats reserved successfully' });
+        return res.json({ message: temp });
+       // return res.json({ message: 'Seats reserved successfully' });
       } else {
         // Find available seats in any row
         const availableSeatsAnyRow = await seatModel.find({
@@ -78,11 +81,14 @@ seatRouter.post("/reserve",async(req,res)=>{
 
         if (availableSeatsAnyRow.length >= numSeats) {
           // Reserve seats in any row
+          let temp=[]
           availableSeatsAnyRow.forEach(async (seat) => {
             seat.isBooked = true;
+            temp.push(seat.seatNumber)
             await seat.save();
           });
-          return res.json({ message: 'Seats reserved successfully' });
+          return res.json({ message: temp });
+         // return res.json({ message: 'Seats reserved successfully' });
         } else {
           // Find seats which are not booked and book them according to the request
           const unreservedSeats = await seatModel.find({ isBooked: false }).limit(numSeats);
