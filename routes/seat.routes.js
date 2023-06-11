@@ -38,58 +38,56 @@ seatRouter.post("/reserve",async(req,res)=>{
     const currentRowSeats = await seatModel.find({
       row: req.body.row,
       isBooked: false,
-    }).limit(numSeats);
+    });
 
     if (currentRowSeats.length >= numSeats) {
       // Reserve seats in the current row
-      currentRowSeats.forEach(async (seat) => {
+      const seatsToReserve = currentRowSeats.slice(0, numSeats);
+      seatsToReserve.forEach(async (seat) => {
         seat.isBooked = true;
         await seat.save();
       });
       return res.json({ message: 'Seats reserved successfully' });
     } else {
-      // Find available seats in the previous row
-      const previousRow = req.body.row - 1;
-      const previousRowSeats = await seatModel.find({
-        row: previousRow,
-        isBooked: false,
-      }).limit(numSeats - currentRowSeats.length);
+      // Find available seats in the nearby rows
+      let nearbySeats = [];
+      let remainingSeats = numSeats - currentRowSeats.length;
 
-      if (previousRowSeats.length === numSeats - currentRowSeats.length) {
-        // Reserve seats in the previous row and current row
-        const allSeats = [...currentRowSeats, ...previousRowSeats];
+      // Find available seats in the next row
+      const nextRowSeats = await seatModel.find({
+        row: req.body.row + 1,
+        isBooked: false,
+      });
+      nearbySeats = nearbySeats.concat(nextRowSeats);
+
+      // Find available seats in the previous row
+      const previousRowSeats = await seatModel.find({
+        row: req.body.row - 1,
+        isBooked: false,
+      });
+      nearbySeats = nearbySeats.concat(previousRowSeats);
+
+      if (nearbySeats.length >= remainingSeats) {
+        // Reserve seats in the current row and nearby rows
+        const allSeats = [...currentRowSeats, ...nearbySeats.slice(0, remainingSeats)];
         allSeats.forEach(async (seat) => {
           seat.isBooked = true;
           await seat.save();
         });
         return res.json({ message: 'Seats reserved successfully' });
       } else {
-        // Find available seats in any row
-        const availableSeatsAnyRow = await seatModel.find({
-          isBooked: false,
-        })
-          .limit(numSeats - currentRowSeats.length - previousRowSeats.length);
+        // Find seats which are not booked and book them according to the request
+        const unreservedSeats = await seatModel.find({ isBooked: false });
 
-        if (availableSeatsAnyRow.length >= numSeats - currentRowSeats.length - previousRowSeats.length) {
-          // Reserve seats in any row
-          availableSeatsAnyRow.forEach(async (seat) => {
+        if (unreservedSeats.length >= numSeats) {
+          const seatsToReserve = unreservedSeats.slice(0, numSeats);
+          seatsToReserve.forEach(async (seat) => {
             seat.isBooked = true;
             await seat.save();
           });
           return res.json({ message: 'Seats reserved successfully' });
         } else {
-          // Find seats which are not booked and book them according to the request
-          const unreservedSeats = await seatModel.find({ isBooked: false }).limit(numSeats);
-
-          if (unreservedSeats.length >= numSeats) {
-            unreservedSeats.forEach(async (seat) => {
-              seat.isBooked = true;
-              await seat.save();
-            });
-            return res.json({ message: 'Seats reserved successfully' });
-          } else {
-            return res.status(400).json({ error: 'Not enough available seats' });
-          }
+          return res.status(400).json({ error: 'Not enough available seats' });
         }
       }
     }
