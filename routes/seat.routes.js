@@ -88,10 +88,13 @@ seatRouter.post("/reserve",async(req,res)=>{
           const unreservedSeats = await seatModel.find({ isBooked: false }).limit(numSeats);
 
           if (unreservedSeats.length >= numSeats) {
+            let temp=[]
             unreservedSeats.forEach(async (seat) => {
               seat.isBooked = true;
+              temp.push(seat.seatNumber)
               await seat.save();
             });
+            res.json(temp)
             return res.json({ message: 'Seats reserved successfully' });
           } else {
             return res.status(400).json({ error: 'Not enough available seats' });
