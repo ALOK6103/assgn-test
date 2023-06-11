@@ -34,51 +34,74 @@ seatRouter.post("/reserve",async(req,res)=>{
       return res.status(400).json({ error: 'Maximum 7 seats can be booked at a time' });
     }
 
-    // Find available seats in the current row
-    const currentRowSeats = await findAvailableSeatsInRow(req.body.row, numSeats);
+    // Find available seats in one row
+    const availableSeatsInOneRow = await seatModel.find({
+      isBooked: false,
+      seatNumber: { $lt: 8 },
+    })
+      .sort({ row: 1, seatNumber: 1 })
+      .limit(numSeats);
 
-    if (currentRowSeats.length === numSeats) {
-      // Reserve seats in the current row
-      await reserveSeatsInRow(currentRowSeats);
+    if (availableSeatsInOneRow.length >= numSeats) {
+      // Reserve seats in one row
+      availableSeatsInOneRow.forEach(async (seat) => {
+        seat.isBooked = true;
+        await seat.save();
+      });
       return res.json({ message: 'Seats reserved successfully' });
     } else {
-      // Find available seats in the nearby rows
-      const nearbyRowSeats = await seatModel.find({
-        row: { $in: [req.body.row - 1, req.body.row + 1] },
+      // Find available seats in nearby rows
+      const lastReservedRow = await seatModel.findOne({ isBooked: true }).sort({ row: -1 });
+      const nextRow = lastReservedRow ? lastReservedRow.row + 1 : 1;
+
+      const availableSeatsNearby = await seatModel.find({
         isBooked: false,
-      }).sort('row seatNumber');
+        row: nextRow,
+      })
+        .sort({ seatNumber: 1 })
+        .limit(numSeats);
 
-      let availableSeats = [];
-      let i = 0;
-
-      while (i < nearbyRowSeats.length && availableSeats.length < numSeats) {
-        const row = nearbyRowSeats[i].row;
-        const seatsInRow = await findAvailableSeatsInRow(row, numSeats - availableSeats.length);
-
-        availableSeats = availableSeats.concat(seatsInRow);
-        i++;
-      }
-
-      if (availableSeats.length === numSeats) {
-        // Reserve seats in the nearby rows
-        await reserveSeatsInRow(availableSeats);
+      if (availableSeatsNearby.length >= numSeats) {
+        // Reserve seats in nearby rows
+        availableSeatsNearby.forEach(async (seat) => {
+          seat.isBooked = true;
+          await seat.save();
+        });
         return res.json({ message: 'Seats reserved successfully' });
       } else {
-        // Find seats which are not booked and book them according to the request
-        const unreservedSeats = await seatModel.find({ isBooked: false }).sort('row seatNumber');
+        // Find available seats in any row
+        const availableSeatsAnyRow = await seatModel.find({
+          isBooked: false,
+        })
+          .sort({ row: 1, seatNumber: 1 })
+          .limit(numSeats);
 
-        if (unreservedSeats.length >= numSeats) {
-          const seatsToReserve = unreservedSeats.slice(0, numSeats);
-          await reserveSeatsInRow(seatsToReserve);
+        if (availableSeatsAnyRow.length >= numSeats) {
+          // Reserve seats in any row
+          availableSeatsAnyRow.forEach(async (seat) => {
+            seat.isBooked = true;
+            await seat.save();
+          });
           return res.json({ message: 'Seats reserved successfully' });
         } else {
-          return res.status(400).json({ error: 'Seats are not available' });
+          // Find seats which are not booked and book them according to the request
+          const unreservedSeats = await seatModel.find({ isBooked: false }).limit(numSeats);
+
+          if (unreservedSeats.length >= numSeats) {
+            unreservedSeats.forEach(async (seat) => {
+              seat.isBooked = true;
+              await seat.save();
+            });
+            return res.json({ message: 'Seats reserved successfully' });
+          } else {
+            return res.status(400).json({ error: 'Not enough available seats' });
+          }
         }
       }
     }
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: 'Internal server error' });
   }
 })
 
