@@ -46,28 +46,41 @@ seatRouter.post("/reserve",async(req,res)=>{
       });
       return res.json({ message: 'Seats reserved successfully' });
     } else {
-      // Find available seats in nearby rows
-      const lastReservedRow = await seatModel.findOne({ isBooked: true }).sort({ row: -1 });
-      const nextRow = lastReservedRow ? lastReservedRow.row + 1 : 1;
+      // Find available seats in each row
+      const rows = await seatModel.distinct('row', { isBooked: false });
 
-      const availableSeatsNearby = await seatModel.find({
-        isBooked: false,
-        row: nextRow,
-      })
-        .sort({ seatNumber: 1 })
-        .limit(numSeats);
+      let reservedSeats = [];
+      let remainingSeats = numSeats;
 
-      if (availableSeatsNearby.length < numSeats || numSeats>7) {
-        return res.status(400).json({ error: 'Not enough available seats' });
+      for (const row of rows) {
+        const availableSeatsInRow = await seatModel.find({
+          isBooked: false,
+          row: row,
+        })
+          .sort({ seatNumber: 1 })
+          .limit(remainingSeats);
+
+        const availableSeatsCount = availableSeatsInRow.length;
+        if (availableSeatsCount >= remainingSeats) {
+          reservedSeats = reservedSeats.concat(availableSeatsInRow.slice(0, remainingSeats));
+          remainingSeats = 0;
+          break;
+        } else {
+          reservedSeats = reservedSeats.concat(availableSeatsInRow);
+          remainingSeats -= availableSeatsCount;
+        }
       }
 
-      // Reserve seats in nearby rows
-      availableSeatsNearby.forEach(async (seat) => {
-        seat.isBooked = true;
-        await seat.save();
-      });
-
-      return res.json({ message: 'Seats reserved successfully' });
+      if (remainingSeats === 0) {
+        // Reserve seats in multiple rows
+        reservedSeats.forEach(async (seat) => {
+          seat.isBooked = true;
+          await seat.save();
+        });
+        return res.json({ message: 'Seats reserved successfully' });
+      } else {
+        return res.status(400).json({ error: 'Not enough available seats' });
+      }
     }
   } catch (error) {
     console.error(error);
