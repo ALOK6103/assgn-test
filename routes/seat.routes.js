@@ -27,7 +27,6 @@ seatRouter.get('/', async (req, res) => {
 
 seatRouter.post("/reserve",async(req,res)=>{
 
-  
   try {
     const numSeats = req.body.numSeats;
 
@@ -35,74 +34,78 @@ seatRouter.post("/reserve",async(req,res)=>{
       return res.status(400).json({ error: 'Maximum 7 seats can be booked at a time' });
     }
 
-    // Find available seats in one row
-    const availableSeatsInOneRow = await seatModel.find({
+    // Find available seats in the current row
+    const currentRowSeats = await seatModel.find({
+      row: req.body.row,
       isBooked: false,
-      seatNumber: { $lt: 8 },
-    })
-      .sort({ row: 1, seatNumber: 1 })
-      .limit(numSeats);
+    });
 
-    if (availableSeatsInOneRow.length >= numSeats) {
-      // Reserve seats in one row
-      availableSeatsInOneRow.forEach(async (seat) => {
+    if (currentRowSeats.length >= numSeats) {
+      // Reserve seats in the current row
+      const seatsToReserve = currentRowSeats.slice(0, numSeats);
+      seatsToReserve.forEach(async (seat) => {
         seat.isBooked = true;
         await seat.save();
       });
       return res.json({ message: 'Seats reserved successfully' });
     } else {
-      // Find available seats in nearby rows
-      const lastReservedRow = await seatModel.findOne({ isBooked: true }).sort({ row: -1 });
-      const nextRow = lastReservedRow ? lastReservedRow.row + 1 : 1;
+      // Find available seats in the nearby rows
+      let nearbySeats = [];
+      let remainingSeats = numSeats - currentRowSeats.length;
 
-      const availableSeatsNearby = await seatModel.find({
+      // Find available seats in the next row
+      const nextRowSeats = await seatModel.find({
+        row: req.body.row + 1,
         isBooked: false,
-        row: nextRow,
-      })
-        .sort({ seatNumber: 1 })
-        .limit(numSeats);
+      });
+      nearbySeats = nearbySeats.concat(nextRowSeats);
 
-      if (availableSeatsNearby.length >= numSeats) {
-        // Reserve seats in nearby rows
-        availableSeatsNearby.forEach(async (seat) => {
+      // Find available seats in the previous row
+      const previousRowSeats = await seatModel.find({
+        row: req.body.row - 1,
+        isBooked: false,
+      });
+      nearbySeats = nearbySeats.concat(previousRowSeats);
+
+      if (nearbySeats.length >= remainingSeats) {
+        // Reserve seats in the current row and nearby rows
+        const allSeats = [...currentRowSeats, ...nearbySeats.slice(0, remainingSeats)];
+        allSeats.forEach(async (seat) => {
           seat.isBooked = true;
           await seat.save();
         });
         return res.json({ message: 'Seats reserved successfully' });
       } else {
-        // Find available seats in any row
-        const availableSeatsAnyRow = await seatModel.find({
-          isBooked: false,
-        })
-          .sort({ row: 1, seatNumber: 1 })
-          .limit(numSeats);
+        // Find seats which are not booked and book them according to the request
+        const unreservedSeats = await seatModel.find({ isBooked: false });
 
-        if (availableSeatsAnyRow.length >= numSeats) {
-          // Reserve seats in any row
-          availableSeatsAnyRow.forEach(async (seat) => {
+        if (unreservedSeats.length >= numSeats) {
+          const seatsToReserve = unreservedSeats.slice(0, numSeats);
+          seatsToReserve.forEach(async (seat) => {
             seat.isBooked = true;
             await seat.save();
           });
           return res.json({ message: 'Seats reserved successfully' });
         } else {
-          // Find seats which are not booked and book them according to the request
-          const unreservedSeats = await seatModel.find({ isBooked: false }).limit(numSeats);
+          // If every row has some seats booked, find seats from the first row
+          const firstRowSeats = await seatModel.find({ row: 1, isBooked: false });
 
-          if (unreservedSeats.length >= numSeats) {
-            unreservedSeats.forEach(async (seat) => {
+          if (firstRowSeats.length >= numSeats) {
+            const seatsToReserve = firstRowSeats.slice(0, numSeats);
+            seatsToReserve.forEach(async (seat) => {
               seat.isBooked = true;
               await seat.save();
             });
             return res.json({ message: 'Seats reserved successfully' });
           } else {
-            return res.status(400).json({ error: 'Not enough available seats' });
+            return res.status(400).json({ error: 'Seats are not available' });
           }
         }
       }
     }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 })
 
