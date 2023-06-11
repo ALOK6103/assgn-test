@@ -44,11 +44,14 @@ seatRouter.post("/reserve",async(req,res)=>{
 
     if (availableSeatsInOneRow.length >= numSeats) {
       // Reserve seats in one row
+      let temp=[]
       availableSeatsInOneRow.forEach(async (seat) => {
         seat.isBooked = true;
+        temp.push(seat.seatNumber)
         await seat.save();
       });
-      return res.json({ message: 'Seats reserved successfully' });
+      return res.json({ message: temp });
+      // return res.json({ message: 'Seats reserved successfully' });
     } else {
       // Find available seats in nearby rows
       const lastReservedRow = await seatModel.findOne({ isBooked: true }).sort({ row: -1 });
