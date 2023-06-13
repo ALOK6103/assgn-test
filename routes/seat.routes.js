@@ -118,7 +118,7 @@ seatRouter.post("/reserve",async(req,res)=>{
   }
 })
 
-app.put('/reset', async (req, res) => {
+seatRouter.put('/reset', async (req, res) => {
   try {
     // Reset all seats to unreserved
     await seatModel.updateMany({}, { isBooked: false });
