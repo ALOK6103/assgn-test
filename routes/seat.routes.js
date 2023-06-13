@@ -118,6 +118,18 @@ seatRouter.post("/reserve",async(req,res)=>{
   }
 })
 
+app.put('/reset', async (req, res) => {
+  try {
+    // Reset all seats to unreserved
+    await seatModel.updateMany({}, { isBooked: false });
+
+    res.json({ message: 'All seats reset to unreserved' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports={
   seatRouter
 }
