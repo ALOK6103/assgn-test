@@ -38,10 +38,15 @@ seatRouter.post("/reserve",async(req,res)=>{
       return res.status(400).json({ error: 'Number of seats must be greater than 0' });
     }
 
+
+
     // Find available seats in one row
     const availableSeatsInOneRow = await seatModel.find({
+      // isBooked: false,
+      // seatNumber: { $lt: 8 },
       isBooked: false,
       seatNumber: { $lt: 8 },
+      $expr: { $gte: { $subtract: [7, "$seatNumber"] }, $gte: numSeats }
     })
       .sort({ row: 1, seatNumber: 1 })
       .limit(numSeats);
