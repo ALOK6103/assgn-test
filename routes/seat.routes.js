@@ -59,7 +59,7 @@ seatRouter.post("/reserve",async(req,res)=>{
       const seatIds = availableSeatsInOneRow.map(seat => seat.seats._id);
       await seatModel.updateMany({ _id: { $in: seatIds } }, { $set: { isBooked: true } });
       availableSeatsInOneRow.map((seat)=>{
-        temp.push(seat.seatNumber)
+        temp.push(seat.seats.seatNumber)
       });
       // return res.json({ message: 'Seats reserved successfully' });
       return res.json({ message: temp});
