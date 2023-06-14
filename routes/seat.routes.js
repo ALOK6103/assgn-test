@@ -55,9 +55,14 @@ seatRouter.post("/reserve",async(req,res)=>{
 
     if (availableSeatsInOneRow.length >= numSeats) {
       // Reserve seats in one row
+      let temp=[]
       const seatIds = availableSeatsInOneRow.map(seat => seat.seats._id);
       await seatModel.updateMany({ _id: { $in: seatIds } }, { $set: { isBooked: true } });
-      return res.json({ message: 'Seats reserved successfully' });
+      availableSeatsInOneRow.map((seat)=>{
+        temp.push(seat.seatNumber)
+      });
+      // return res.json({ message: 'Seats reserved successfully' });
+      return res.json({ message: temp});
     }
 
     // Reserve seats in nearby rows
@@ -74,6 +79,7 @@ seatRouter.post("/reserve",async(req,res)=>{
       // Reserve seats in nearby rows
       const seatIds = availableSeatsNearby.map(seat => seat._id);
       await seatModel.updateMany({ _id: { $in: seatIds } }, { $set: { isBooked: true } });
+      awail
       return res.json({ message: 'Seats reserved successfully' });
     }
 
