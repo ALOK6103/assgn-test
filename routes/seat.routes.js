@@ -34,6 +34,10 @@ seatRouter.post("/reserve",async(req,res)=>{
       return res.status(400).json({ error: 'Maximum 7 seats can be booked at a time' });
     }
 
+    if (numSeats <= 0) {
+      return res.status(400).json({ error: 'Number of seats must be greater than 0' });
+    }
+
     // Find available seats in one row
     const availableSeatsInOneRow = await seatModel.find({
       isBooked: false,
