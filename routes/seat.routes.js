@@ -41,25 +41,25 @@ seatRouter.post("/reserve",async(req,res)=>{
 
 
     // Find available seats in one row
-    const availableSeatsInOneRow = await seatModel.find({
-      // isBooked: false,
-      // seatNumber: { $lt: 8 },
-      isBooked: false,
-      seatNumber: { $lt: 8 },
-      $expr: { $gte: { $subtract: [7, "$seatNumber"] }, $gte: numSeats }
-    })
-      .sort({ row: 1, seatNumber: 1 })
-      .limit(numSeats);
+    const availableSeatsInOneRow = await seatModel.aggregate([
+      { $match: { isBooked: false } },
+      { $group: { _id: "$row", count: { $sum: 1 } } },
+      { $match: { count: { $gte: numSeats } } },
+      { $sort: { count: 1 } },
+      { $limit: 1 },
+      { $lookup: { from: "seats", localField: "_id", foreignField: "row", as: "seats" } },
+      { $unwind: "$seats" },
+      { $match: { "seats.isBooked": false } },
+      { $sort: { "seats.seatNumber": 1 } },
+      { $limit: numSeats }
+    ]);
 
     if (availableSeatsInOneRow.length >= numSeats) {
       // Reserve seats in one row
-      let temp=[]
-      availableSeatsInOneRow.forEach(async (seat) => {
-        seat.isBooked = true;
-        temp.push(seat.seatNumber)
-        await seat.save();
-      });
-      return res.json({ message: temp });
+      const seatIds = availableSeatsInOneRow.map(seat => seat.seats._id);
+      await seatModel.updateMany({ _id: { $in: seatIds } }, { $set: { isBooked: true } });
+      return res.json({ message: 'Seats reserved successfully' });
+    
       // return res.json({ message: 'Seats reserved successfully' });
     } else {
       // Find available seats in nearby rows
