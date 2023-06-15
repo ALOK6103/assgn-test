@@ -6,6 +6,7 @@ const seatSchema=mongoose.Schema(
         seatNumber: Number,
         row: Number,
         isBooked: Boolean,
+        name:String
     },{
         versionKey:false
     }
